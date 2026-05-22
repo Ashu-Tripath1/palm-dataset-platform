@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum Hand {
+  LEFT
+  RIGHT
+}
+
+enum CameraType {
+  FRONT
+  BACK
+}
+
+enum SubmissionStatus {
+  IN_PROGRESS
+  SUBMITTED
+  REJECTED
+}
+
+// ============================================================
+// MODELS
+// ============================================================
+
+model Participant {
+  id                 String           @id @default(uuid())
+  age                Int
+  gender             Gender
+  profession         String
+  professionCategory String?
+  country            String // ISO 3166-1 alpha-2 code
+  consentGiven       Boolean          @default(false)
+  consentTimestamp   DateTime?
+  status             SubmissionStatus @default(IN_PROGRESS)
+  email              String?
+  referenceCode      String?          @unique
+  submissionHash     String? // hash of age+gender+profession+country for duplicate detection
+  photos             Photo[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([status])
+  @@index([gender])
+  @@index([country])
+  @@index([createdAt])
+  @@index([submissionHash])
+}
+
+model Photo {
+  id               String      @id @default(uuid())
+  participantId    String
+  participant      Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  hand             Hand
+  cameraType       CameraType
+  backgroundNumber Int // 1, 2, or 3
+  storagePath      String // Internal S3 path (never exposed to participants)
+  fileSizeBytes    Int
+  imageWidth       Int
+  imageHeight      Int
+  validationPassed Boolean     @default(false)
+  validationChecks Json // { palmSize: bool, brightness: bool, sharpness: bool, handCount: bool, palmAngle: bool, handedness: bool, magicBytes: bool, skinTone: bool }
+  gloveFlag        Boolean     @default(false) // soft flag from CHECK 7
+  uploadedAt       DateTime    @default(now())
+
+  @@unique([participantId, hand, cameraType, backgroundNumber])
+  @@index([participantId])
+  @@index([validationPassed])
+}
+
+model AdminUser {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  totpSecret   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
